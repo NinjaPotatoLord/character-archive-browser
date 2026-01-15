@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tailwindcss";
+
+/* To mówi Tailwindowi v4, gdzie ma szukać Twoich klas */
+@source "./js/components/**/*.js";
+@source "./index.html";

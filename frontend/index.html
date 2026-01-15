@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Archive Browser</title>
+    <link rel="stylesheet" href="css/output.css">
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    <style>
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .card-image {
+            aspect-ratio: 1/1;
+            object-fit: cover;
+        }
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .modal {
+            display: none;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .tag-chip {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tag-chip:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Load Preact and htm from local vendor -->
+    <script type="module">
+        import { render } from './js/vendor/preact.js';
+        import { html } from './js/vendor/htm-preact.js';
+        import { App } from './js/App.js';
+
+        // Render the App component
+        render(html`<${App} />`, document.getElementById('root'));
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('characterModal');
+                if (modal && modal.classList.contains('active')) {
+                    // Find the close button and click it
+                    const closeBtn = modal.querySelector('[onclick*="closeModal"], [onclick*="close"]');
+                    if (closeBtn) {
+                        closeBtn.click();
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
