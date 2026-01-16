@@ -5,7 +5,7 @@ export function CollapsibleSection({ title, children, initiallyOpen = false }) {
     const [isOpen, setIsOpen] = useState(initiallyOpen);
 
     return html`
-        <div class="border border-gray-700 rounded-lg overflow-hidden">
+        <div class="border border-gray-700 z-10 rounded-lg overflow-hidden">
             <button
                 class="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 flex justify-between items-center"
                 onClick=${() => setIsOpen(!isOpen)}

@@ -159,6 +159,7 @@ def build_select_query(source_key: str, config: dict, extra_where: str = "", ord
         columns.append("NULL as tagline")
 
     columns.append("added")
+    columns.append("metadata->>'totalTokens' as tokens")
     columns.append(f"'{source_key}' as source")
 
     query = f"""
@@ -282,6 +283,7 @@ async def _get_characters_internal(
                         columns.append("NULL as tagline")
 
                     columns.append("d.added")
+                    columns.append("d.metadata->>'totalTokens' as tokens")
                     columns.append(f"'{src}' as source")
 
                     # Build WHERE clause for the joined query

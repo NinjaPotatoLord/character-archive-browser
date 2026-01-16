@@ -76,10 +76,15 @@ export function CharacterCard({ character, onClick, globalBlurDisabled }) {
                 <p class="text-sm text-gray-400 truncate">
                     by ${escapeHtml(character.author || 'Unknown')}
                 </p>
-                <div class="mt-1 flex items-center justify-between">
+                <div class="mt-1 flex items-center gap-2 flex-wrap">
                     <span class="text-xs px-2 py-0.5 bg-gray-700 rounded">
                         ${escapeHtml(character.source)}
                     </span>
+                    ${character.tokens ? html`
+                        <span class="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded">
+                            ${parseInt(character.tokens).toLocaleString()} tokens
+                        </span>
+                    ` : ''}
                 </div>
                 ${character.tagline ? html`
                     <p class="text-xs text-gray-500 mt-2 line-clamp-2">

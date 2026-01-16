@@ -30,6 +30,7 @@ function IsolatedHtml({ content }) {
                     color: #d1d5db;
                     font-size: 0.875rem;
                     line-height: 1.5;
+                    isolation: isolate;
                 }
                 * {
                     max-width: 100%;
@@ -43,7 +44,7 @@ function IsolatedHtml({ content }) {
         shadow.innerHTML = baseStyles + content;
     }, [content]);
 
-    return html`<div ref=${containerRef} class="overflow-auto z-10 relative"></div>`;
+    return html`<div ref=${containerRef} class="overflow-auto relative isolate"></div>`;
 }
 
 // Check if content looks like HTML
@@ -74,8 +75,14 @@ export function CharacterModal({
     const def = selectedCharacter.definition;
     const tags = selectedCharacterTags;
 
+    // Get token count with fallback
+    const tokens = selectedCharacter.character?.data?.nTokens || 
+                   def?.metadata?.totalTokens || 
+                   null;
+
     // Determine which section should be open by default
     const hasCreatorNotes = !!def.definition?.data?.creator_notes;
+    const hasTagline = !!def.tagline;
     const hasFirstMessage = !!(def.definition?.data?.first_mes || def.definition?.first_mes);
 
     return html`
@@ -85,7 +92,7 @@ export function CharacterModal({
             onClick=${(e) => e.target === e.currentTarget && closeModal()}
         >
             <div class="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
-                <div class="sticky top-0 bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
+                <div class="sticky z-10 top-0 bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
                     <h2 class="text-xl font-bold">${def.name || 'Character'}</h2>
                     <button
                         onClick=${closeModal}
@@ -119,6 +126,7 @@ export function CharacterModal({
                                 </p>
                                 <p><span class="text-gray-400">Source:</span> ${selectedCharacter.source}</p>
                                 <p><span class="text-gray-400">Added:</span> ${def.added ? new Date(def.added).toLocaleDateString() : 'Unknown'}</p>
+                                <p><span class="text-gray-400">Tokens:</span> ${tokens ? tokens.toLocaleString() : 'N/A'}</p>
                             </div>
                             <div class="mt-4 space-y-2">
                                 <button
@@ -137,7 +145,9 @@ export function CharacterModal({
                         </div>
                         <div class="md:col-span-2 space-y-4">
                             ${def.tagline ? html`
-                                <p class="text-lg text-gray-300">${escapeHtml(def.tagline)}</p>
+                                <${CollapsibleSection} title="Tagline" initiallyOpen=${!hasCreatorNotes}>
+                                    <${IsolatedHtml} content=${def.tagline} />
+                                </${CollapsibleSection}>
                             ` : ''}
 
                             ${tags.length > 0 ? html`
@@ -188,7 +198,7 @@ export function CharacterModal({
                             ` : null}
 
                             ${(def.definition?.data?.first_mes || def.definition?.first_mes) ? html`
-                                <${CollapsibleSection} title="First Message" initiallyOpen=${!hasCreatorNotes}>
+                                <${CollapsibleSection} title="First Message" initiallyOpen=${!hasCreatorNotes && !hasTagline}>
                                     <p class="text-gray-300 whitespace-pre-wrap text-sm bg-gray-900 p-3 rounded">
                                         ${escapeHtml(def.definition?.data?.first_mes || def.definition?.first_mes || '')}
                                     </p>
