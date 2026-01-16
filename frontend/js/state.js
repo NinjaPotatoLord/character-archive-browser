@@ -10,6 +10,8 @@ export function parseUrlState() {
         tag: params.get('tag') || '',
         source: params.get('source') || '',
         order_by: params.get('order_by') || 'latest',
+        min_tokens: params.get('min_tokens') ? parseInt(params.get('min_tokens')) : null,
+        max_tokens: params.get('max_tokens') ? parseInt(params.get('max_tokens')) : null,
         page: parseInt(params.get('page')) || 0,
     };
 }
@@ -30,6 +32,12 @@ export function buildUrl(state) {
     }
     if (state.order_by) {
         params.set('order_by', state.order_by);
+    }
+    if (state.min_tokens !== null && state.min_tokens !== undefined) {
+        params.set('min_tokens', state.min_tokens);
+    }
+    if (state.max_tokens !== null && state.max_tokens !== undefined) {
+        params.set('max_tokens', state.max_tokens);
     }
     if (state.page) {
         params.set('page', state.page);

@@ -64,6 +64,8 @@ export function App() {
                 tag: state.tag,
                 source: state.source,
                 order_by: state.order_by || 'latest',
+                min_tokens: state.min_tokens,
+                max_tokens: state.max_tokens,
                 limit: PAGE_SIZE,
                 offset: state.page * PAGE_SIZE
             });
@@ -78,6 +80,8 @@ export function App() {
         updateState({
             query: '',
             tag: '',
+            min_tokens: null,
+            max_tokens: null,
             page: 0
         });
     }, [updateState]);

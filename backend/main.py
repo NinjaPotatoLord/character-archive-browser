@@ -205,7 +205,9 @@ async def get_characters(
     q: Optional[str] = Query(default=None, description="Search query for name/author"),
     tag: Optional[str] = Query(default=None, description="Filter by tag name"),
     source: Optional[str] = Query(default=None, description="Filter by source"),
-    order_by: str = Query(default="latest", description="Order by: latest, oldest, random"),
+    order_by: str = Query(default="latest", description="Order by: latest, oldest, random, tokens_asc, tokens_desc"),
+    min_tokens: Optional[int] = Query(default=None, description="Minimum token count"),
+    max_tokens: Optional[int] = Query(default=None, description="Maximum token count"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
@@ -218,6 +220,8 @@ async def get_characters(
         tag=tag,
         source=source,
         order_by=order_by,
+        min_tokens=min_tokens,
+        max_tokens=max_tokens,
         limit=limit,
         offset=offset
     )
@@ -231,6 +235,8 @@ async def _get_characters_internal(
     tag: Optional[str] = None,
     source: Optional[str] = None,
     order_by: str = "latest",
+    min_tokens: Optional[int] = None,
+    max_tokens: Optional[int] = None,
     limit: int = 20,
     offset: int = 0,
 ):
@@ -309,13 +315,23 @@ async def _get_characters_internal(
                     where_clause_parts.append("ct.source = %s")
                     params.append(src)
 
+                    if min_tokens is not None:
+                        where_clause_parts.append("CAST(d.metadata->>'totalTokens' AS INTEGER) >= %s")
+                        params.append(min_tokens)
+
+                    if max_tokens is not None:
+                        where_clause_parts.append("CAST(d.metadata->>'totalTokens' AS INTEGER) <= %s")
+                        params.append(max_tokens)
+
                     where_clause = "WHERE " + " AND ".join(where_clause_parts)
 
                     # Determine order
                     order_map = {
                         "latest": "d.added DESC",
                         "oldest": "d.added ASC",
-                        "random": "RANDOM()"
+                        "random": "RANDOM()",
+                        "tokens_asc": "CAST(d.metadata->>'totalTokens' AS INTEGER) ASC",
+                        "tokens_desc": "CAST(d.metadata->>'totalTokens' AS INTEGER) DESC"
                     }
                     order_by_clause = order_map.get(order_by, "d.added DESC")
 
@@ -357,6 +373,14 @@ async def _get_characters_internal(
                         where_parts.append("name ILIKE %s")
                         params.append(pattern)
 
+                if min_tokens is not None:
+                    where_parts.append("CAST(metadata->>'totalTokens' AS INTEGER) >= %s")
+                    params.append(min_tokens)
+
+                if max_tokens is not None:
+                    where_parts.append("CAST(metadata->>'totalTokens' AS INTEGER) <= %s")
+                    params.append(max_tokens)
+
                 # Combine WHERE conditions
                 where_clause = ""
                 if where_parts:
@@ -366,7 +390,9 @@ async def _get_characters_internal(
                 order_map = {
                     "latest": "added DESC",
                     "oldest": "added ASC",
-                    "random": "RANDOM()"
+                    "random": "RANDOM()",
+                    "tokens_asc": "CAST(metadata->>'totalTokens' AS INTEGER) ASC",
+                    "tokens_desc": "CAST(metadata->>'totalTokens' AS INTEGER) DESC"
                 }
                 order_by_clause = order_map.get(order_by, "added DESC")
 
