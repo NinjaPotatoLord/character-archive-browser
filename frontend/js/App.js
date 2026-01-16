@@ -61,7 +61,7 @@ export function App() {
         try {
             const data = await api.searchCharacters({
                 query: state.query,
-                tag: state.tag,
+                tags: state.tags,
                 source: state.source,
                 order_by: state.order_by || 'latest',
                 min_tokens: state.min_tokens,

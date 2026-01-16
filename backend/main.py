@@ -203,7 +203,7 @@ async def get_stats():
 @app.get("/api/characters")
 async def get_characters(
     q: Optional[str] = Query(default=None, description="Search query for name/author"),
-    tag: Optional[str] = Query(default=None, description="Filter by tag name"),
+    tag: Optional[str] = Query(default=None, description="Filter by tag name(s), comma-separated"),
     source: Optional[str] = Query(default=None, description="Filter by source"),
     order_by: str = Query(default="latest", description="Order by: latest, oldest, random, tokens_asc, tokens_desc"),
     min_tokens: Optional[int] = Query(default=None, description="Minimum token count"),
@@ -247,116 +247,126 @@ async def _get_characters_internal(
     results = []
     sources_to_query = [source] if source and source in SOURCES else list(SOURCES.keys())
 
+    # Parse multiple tags if provided
+    tag_list = []
+    if tag is not None and tag.strip():
+        tag_list = [t.strip() for t in tag.split(",") if t.strip()]
+
     async with pool.connection() as conn:
         for src in sources_to_query:
             config = SOURCES[src]
 
             # Check if we need to use the tag join query
-            if tag is not None and tag.strip():  # Check for None and empty string
-                # First get the tag ID
-                async with conn.cursor(row_factory=dict_row) as tag_cur:
-                    await tag_cur.execute(
-                        "SELECT id FROM tags WHERE LOWER(name) = LOWER(%s)",
-                        (tag,)
-                    )
-                    tag_row = await tag_cur.fetchone()
-                    if not tag_row:
-                        # If tag doesn't exist, skip this source
-                        continue
+            if tag_list:  # Check for multiple tags
+                # Get IDs for all tags
+                tag_ids = []
+                for tag_name in tag_list:
+                    async with conn.cursor(row_factory=dict_row) as tag_cur:
+                        await tag_cur.execute(
+                            "SELECT id FROM tags WHERE LOWER(name) = LOWER(%s)",
+                            (tag_name,)
+                        )
+                        tag_row = await tag_cur.fetchone()
+                        if tag_row:
+                            tag_ids.append(tag_row["id"])
 
-                    tag_id = tag_row["id"]
+                # If we don't have all requested tags, skip this source
+                if len(tag_ids) != len(tag_list):
+                    continue
 
-                    # Use JOIN query for tag filtering
-                    id_field = config["id_field"]
-                    def_table = config["def_table"]
+                # Use JOIN query for multiple tag filtering (AND condition)
+                id_field = config["id_field"]
+                def_table = config["def_table"]
 
-                    # Build column list based on what's available
-                    columns = [
-                        f"d.{id_field} as id",
-                        "d.name",
-                    ]
+                # Build column list based on what's available
+                columns = [
+                    f"d.{id_field} as id",
+                    "d.name",
+                ]
 
+                if config["has_author"]:
+                    columns.append("d.author")
+                else:
+                    columns.append("'Unknown' as author")
+
+                columns.append("d.image_hash")
+
+                if config["has_tagline"]:
+                    columns.append("d.tagline")
+                else:
+                    columns.append("NULL as tagline")
+
+                columns.append("d.added")
+                columns.append("d.metadata->>'totalTokens' as tokens")
+                columns.append(f"'{src}' as source")
+
+                # Build WHERE clause for the joined query
+                where_clause_parts = []
+                params = []
+
+                # Add search filter to the joined query
+                if q:
+                    search_term = q.replace("'", "''").replace("\\", "\\\\")
+                    pattern = f"%{search_term}%"
                     if config["has_author"]:
-                        columns.append("d.author")
+                        where_clause_parts.append("(d.name ILIKE %s OR d.author ILIKE %s)")
+                        params.extend([pattern, pattern])
                     else:
-                        columns.append("'Unknown' as author")
+                        where_clause_parts.append("d.name ILIKE %s")
+                        params.append(pattern)
 
-                    columns.append("d.image_hash")
-
-                    if config["has_tagline"]:
-                        columns.append("d.tagline")
-                    else:
-                        columns.append("NULL as tagline")
-
-                    columns.append("d.added")
-                    columns.append("d.metadata->>'totalTokens' as tokens")
-                    columns.append(f"'{src}' as source")
-
-                    # Build WHERE clause for the joined query
-                    where_clause_parts = []
-                    params = []
-
-                    # Add search filter to the joined query
-                    if q:
-                        search_term = q.replace("'", "''").replace("\\", "\\\\")
-                        pattern = f"%{search_term}%"
-                        if config["has_author"]:
-                            where_clause_parts.append("(d.name ILIKE %s OR d.author ILIKE %s)")
-                            params.extend([pattern, pattern])
-                        else:
-                            where_clause_parts.append("d.name ILIKE %s")
-                            params.append(pattern)
-
-                    # Add tag filter
-                    where_clause_parts.append("ct.tag_id = %s")
+                # Add tag filters (all tags must match - AND condition)
+                for i, tag_id in enumerate(tag_ids):
+                    # Create alias for each tag join
+                    alias = f"ct{i}"
+                    where_clause_parts.append(f"{alias}.tag_id = %s")
                     params.append(tag_id)
-
-                    # Add source filter
-                    where_clause_parts.append("ct.source = %s")
+                    where_clause_parts.append(f"{alias}.source = %s")
                     params.append(src)
 
-                    if min_tokens is not None:
-                        where_clause_parts.append("CAST(d.metadata->>'totalTokens' AS INTEGER) >= %s")
-                        params.append(min_tokens)
+                # Combine WHERE conditions
+                where_clause = "WHERE " + " AND ".join(where_clause_parts)
 
-                    if max_tokens is not None:
-                        where_clause_parts.append("CAST(d.metadata->>'totalTokens' AS INTEGER) <= %s")
-                        params.append(max_tokens)
+                # Determine order
+                order_map = {
+                    "latest": "d.added DESC",
+                    "oldest": "d.added ASC",
+                    "random": "RANDOM()",
+                    "tokens_asc": "CAST(d.metadata->>'totalTokens' AS INTEGER) ASC",
+                    "tokens_desc": "CAST(d.metadata->>'totalTokens' AS INTEGER) DESC"
+                }
+                order_by_clause = order_map.get(order_by, "d.added DESC")
 
-                    where_clause = "WHERE " + " AND ".join(where_clause_parts)
+                # Build the joined query with multiple character_tags joins
+                joins = []
+                for i in range(len(tag_ids)):
+                    alias = f"ct{i}"
+                    joins.append(f"JOIN character_tags {alias} ON {alias}.character_id = d.{id_field}::text")
 
-                    # Determine order
-                    order_map = {
-                        "latest": "d.added DESC",
-                        "oldest": "d.added ASC",
-                        "random": "RANDOM()",
-                        "tokens_asc": "CAST(d.metadata->>'totalTokens' AS INTEGER) ASC",
-                        "tokens_desc": "CAST(d.metadata->>'totalTokens' AS INTEGER) DESC"
-                    }
-                    order_by_clause = order_map.get(order_by, "d.added DESC")
+                join_clause = " ".join(joins)
 
-                    # Build the joined query
-                    query = f"""
-                        SELECT {', '.join(columns)}
-                        FROM {def_table} d
-                        JOIN character_tags ct ON ct.character_id = d.{id_field}::text
-                        {where_clause}
-                        ORDER BY {order_by_clause}
-                        LIMIT %s OFFSET %s
-                    """
-                    final_params = params + [limit, offset]
+                # Build the final query
+                query = f"""
+                    SELECT {', '.join(columns)}
+                    FROM {def_table} d
+                    {join_clause}
+                    {where_clause}
+                    ORDER BY {order_by_clause}
+                    LIMIT %s OFFSET %s
+                """
+                final_params = params + [limit, offset]
 
-                    try:
-                        async with conn.cursor(row_factory=dict_row) as cur:
-                            await cur.execute(query, final_params)
-                            rows = await cur.fetchall()
-                            for row in rows:
-                                row["added"] = row["added"].isoformat() if row["added"] else None
-                                row["id"] = str(row["id"])
-                                results.append(row)
-                    except Exception as e:
-                        print(f"Error querying {src} with tag: {e}")
-                        continue
+                try:
+                    async with conn.cursor(row_factory=dict_row) as cur:
+                        await cur.execute(query, final_params)
+                        rows = await cur.fetchall()
+                        for row in rows:
+                            row["added"] = row["added"].isoformat() if row["added"] else None
+                            row["id"] = str(row["id"])
+                            results.append(row)
+                except Exception as e:
+                    print(f"Error querying {src} with tags: {e}")
+                    continue
             else:
                 # Use the original query logic without tags
                 where_parts = []
@@ -394,7 +404,7 @@ async def _get_characters_internal(
                     "tokens_asc": "CAST(metadata->>'totalTokens' AS INTEGER) ASC",
                     "tokens_desc": "CAST(metadata->>'totalTokens' AS INTEGER) DESC"
                 }
-                order_by_clause = order_map.get(order_by, "added DESC")
+                order_by_clause = order_map.get(order_by, "d.added DESC")
 
                 query = build_select_query(src, config, where_clause, order_by=order_by_clause)
                 query += " LIMIT %s OFFSET %s"

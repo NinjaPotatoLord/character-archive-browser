@@ -10,7 +10,7 @@ export function SearchBar({
     onUpdateState,
 }) {
     const [inputValue, setInputValue] = useState(state.query);
-    const [tag, setTag] = useState(state.tag);
+    const [tags, setTags] = useState(state.tags || []);
     const [source, setSource] = useState(state.source);
     const [sortOrder, setSortOrder] = useState(state.order_by || 'latest');
     const [minTokens, setMinTokens] = useState(state.min_tokens || '');
@@ -22,19 +22,19 @@ export function SearchBar({
     }
 
     const handleClearTag = () => {
-        setTag('');
+        setTags([]);
     }
 
     const handleClear = () => {
         setInputValue('');
-        setTag('');
+        setTags([]);
         setSource('');
         setSortOrder('latest');
         setMinTokens('');
         setMaxTokens('');
         onUpdateState({
             query: '',
-            tag: '',
+            tags: [],
             source: '',
             order_by: 'latest',
             min_tokens: null,
@@ -47,7 +47,7 @@ export function SearchBar({
         e.preventDefault();
         onUpdateState({
             query: inputValue,
-            tag,
+            tags,
             source,
             order_by: sortOrder,
             min_tokens: minTokens ? parseInt(minTokens) : null,
@@ -59,72 +59,85 @@ export function SearchBar({
     return html`
         <div class="mb-6">
             <form onSubmit=${handleSubmit}>
-                <div class="flex gap-2 flex-wrap">
-                    <input
-                        type="text"
-                        value=${inputValue}
-                        onInput=${createSetValueHandler(setInputValue)}
-                        placeholder="Search characters by name, author..."
-                        class="flex-1 min-w-[200px] px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
-                    />
-                    <${TagSelect}
-                        selectedTag=${tag}
-                        onSelect=${setTag}
-                        onRemove=${handleClearTag}
-                        placeholder="Filter by tag..."
-                    />
-                    <select
-                        value=${source}
-                        onChange=${createSetValueHandler(setSource)}
-                        class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
-                    >
-                        <option value="">All Sources</option>
-                        ${Object.entries(sources).map(([key, name]) => html`
-                            <option key=${key} value=${key}>${name}</option>
-                        `)}
-                    </select>
-                    <select
-                        value=${sortOrder}
-                        onChange=${createSetValueHandler(setSortOrder)}
-                        class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
-                    >
-                        <option value="latest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                        <option value="random">Random</option>
-                        <option value="tokens_asc">Tokens (Low to High)</option>
-                        <option value="tokens_desc">Tokens (High to Low)</option>
-                    </select>
-                    <input
-                        type="number"
-                        value=${minTokens}
-                        onInput=${createSetValueHandler(setMinTokens)}
-                        placeholder="Min tokens"
-                        min="0"
-                        class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg w-32"
-                    />
-                    <input
-                        type="number"
-                        value=${maxTokens}
-                        onInput=${createSetValueHandler(setMaxTokens)}
-                        placeholder="Max tokens"
-                        min="0"
-                        class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg w-32"
-                    />
-                    <button
-                        type="submit"
-                        class="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium"
-                    >
-                        Search
-                    </button>
+                <div class="flex gap-2">
+                    <div class="flex flex-col grow-1 gap-2">
+                    <div class="flex gap-2">
+                            <input
+                                type="text"
+                                value=${inputValue}
+                                onInput=${createSetValueHandler(setInputValue)}
+                                placeholder="Search characters by name, author..."
+                                class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+                            />
+                    </div>
+                    
+                    <div class="flex gap-2">
+                            <${TagSelect}
+                                selectedTags=${tags}
+                                onSelect=${setTags}
+                                onRemove=${setTags}
+                                placeholder="Filter by tag..."
+                            />
+                    </div> 
+                                    
+                    <div class="flex gap-2">
+                            <input
+                                type="number"
+                                value=${minTokens}
+                                onInput=${createSetValueHandler(setMinTokens)}
+                                placeholder="Min tokens"
+                                min="0"
+                                class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                            />
+                            <input
+                                type="number"
+                                value=${maxTokens}
+                                onInput=${createSetValueHandler(setMaxTokens)}
+                                placeholder="Max tokens"
+                                min="0"
+                                class="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                            />
+                            <select
+                                value=${source}
+                                onChange=${createSetValueHandler(setSource)}
+                                class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                            >
+                                <option value="">All Sources</option>
+                                ${Object.entries(sources).map(([key, name]) => html`
+                                    <option key=${key} value=${key}>${name}</option>
+                                `)}
+                            </select>
+                            <select
+                                value=${sortOrder}
+                                onChange=${createSetValueHandler(setSortOrder)}
+                                class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg"
+                            >
+                                <option value="latest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="random">Random</option>
+                                <option value="tokens_asc">Tokens (Low to High)</option>
+                                <option value="tokens_desc">Tokens (High to Low)</option>
+                            </select>
+                    </div>
+                    </div>
 
-                    ${(inputValue || tag || source || minTokens || maxTokens) && html`
+                    <!-- Buttons Section -->
+                    <div class="flex gap-2 flex-col shrink-0 flex-wrap">
                         <button
-                            onClick=${handleClear}
-                            class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium"
+                            type="submit"
+                            class="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium flex-1 min-w-[100px]"
                         >
-                            Clear Filter
+                            Search
                         </button>
-                    `}
+                        ${(inputValue || (tags && tags.length > 0) || source || minTokens || maxTokens) ? html`
+                            <button
+                                onClick=${handleClear}
+                                class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium flex-1 min-w-[100px]"
+                            >
+                                Clear Filter
+                            </button>
+                        ` : null}
+                    </div>
                 </div>
             </form>
         </div>

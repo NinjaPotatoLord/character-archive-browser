@@ -5,9 +5,12 @@ import { useState, useEffect, useCallback } from './vendor/preact-hooks.js';
 // Parse URL parameters into state object
 export function parseUrlState() {
     const params = new URLSearchParams(window.location.search);
+    const tagParam = params.get('tag') || '';
+    const tags = tagParam ? tagParam.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
     return {
         query: params.get('q') || '',
-        tag: params.get('tag') || '',
+        tags: tags,
         source: params.get('source') || '',
         order_by: params.get('order_by') || 'latest',
         min_tokens: params.get('min_tokens') ? parseInt(params.get('min_tokens')) : null,
@@ -23,8 +26,8 @@ export function buildUrl(state) {
     if (state.query) {
         params.set('q', state.query);
     }
-    if (state.tag) {
-        params.set('tag', state.tag);
+    if (state.tags && state.tags.length > 0) {
+        params.set('tag', state.tags.join(','));
     }
 
     if (state.source) {

@@ -35,11 +35,11 @@ export async function searchTags({ query = '', limit = 100, offset = 0 } = {}) {
 }
 
 // All functionality is now covered by the unified fetchCharacters function
-export async function searchCharacters({ query = '', tag = '', source = '', order_by = 'latest', min_tokens = null, max_tokens = null, limit = 40, offset = 0 }) {
+export async function searchCharacters({ query = '', tags = [], source = '', order_by = 'latest', min_tokens = null, max_tokens = null, limit = 40, offset = 0 }) {
     const params = new URLSearchParams({ order_by, limit, offset });
     if (source) params.set('source', source);
     if (query) params.set('q', query);
-    if (tag) params.set('tag', tag);
+    if (tags && tags.length > 0) params.set('tag', tags.join(','));
     if (min_tokens !== null) params.set('min_tokens', min_tokens);
     if (max_tokens !== null) params.set('max_tokens', max_tokens);
     const res = await fetch(`${API_BASE}/characters?${params}`);
