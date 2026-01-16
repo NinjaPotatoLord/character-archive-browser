@@ -20,6 +20,12 @@ export function App() {
     const [loading, setLoading] = useState(false);
     const [selectedCharacter, setSelectedCharacter] = useState(null);
     const [selectedCharacterTags, setSelectedCharacterTags] = useState([]);
+    const [blurDisabled, setBlurDisabled] = useState(false);
+
+    useEffect(() => {
+        const stored = localStorage.getItem('blurDisabled');
+        setBlurDisabled(stored === 'true');
+    }, []);
 
     // Load sources on mount
     useEffect(() => {
@@ -146,10 +152,15 @@ export function App() {
         });
     }, [closeModal, updateState]);
 
+    const handleBlurToggle = useCallback((newValue) => {
+        setBlurDisabled(newValue);
+    }, []);
+
     return html`
         <div class="bg-gray-900 text-gray-100 min-h-screen">
             <${MainNavigation}
                 onShowHome=${handleShowHome}
+                onBlurToggle=${handleBlurToggle}
             />
 
             <main class="max-w-7xl mx-auto px-4 py-6">
@@ -168,6 +179,7 @@ export function App() {
                         loading=${loading}
                         handlePageChange=${handlePageChange}
                         handleCharacterClick=${handleCharacterClick}
+                        blurDisabled=${blurDisabled}
                     />` : null}
                 </div>
             </main>

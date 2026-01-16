@@ -7,7 +7,8 @@ export function CharacterGridView({
     state,
     loading,
     handlePageChange,
-    handleCharacterClick
+    handleCharacterClick,
+    blurDisabled
 }) {
     const renderCharacterCards = () => {
         if (!characters || characters.length === 0) {
@@ -19,6 +20,7 @@ export function CharacterGridView({
                 key=${`${char.source}-${char.id}`}
                 character=${char}
                 onClick=${handleCharacterClick}
+                globalBlurDisabled=${blurDisabled}
             />
         `);
     };
