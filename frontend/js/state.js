@@ -2,6 +2,21 @@
 
 import { useState, useEffect, useCallback } from './vendor/preact-hooks.js';
 
+const STORAGE_KEY = 'filters_state';
+
+function saveStateToStorage(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadStateFromStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : null;
+    } catch {
+        return null;
+    }
+}
+
 // Parse URL parameters into state object
 export function parseUrlState() {
     const params = new URLSearchParams(window.location.search);
@@ -51,7 +66,15 @@ export function buildUrl(state) {
 
 // Custom hook for URL-synced state
 export function useUrlState() {
-    const [state, setState] = useState(parseUrlState);
+    const [state, setState] = useState(() => {
+        const saved = loadStateFromStorage();
+        if (saved) {
+            const newUrl = buildUrl(saved);
+            history.replaceState({}, '', newUrl);
+            return saved;
+        }
+        return parseUrlState();
+    });
 
     // Update URL when state changes
     const updateState = useCallback((updates) => {
@@ -59,6 +82,7 @@ export function useUrlState() {
             const newState = typeof updates === 'function' ? updates(prev) : { ...prev, ...updates };
             const newUrl = buildUrl(newState);
             history.replaceState({}, '', newUrl);
+            saveStateToStorage(newState);
             return newState;
         });
     }, []);
